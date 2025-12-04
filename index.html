@@ -207,6 +207,51 @@
             font-size: 1.2rem;
         }
         
+        .viewer-controls {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+        
+        .control-btn {
+            padding: 0.5rem 1rem;
+            background: rgba(0, 217, 255, 0.1);
+            border: 1px solid var(--accent-cyan);
+            border-radius: 8px;
+            color: var(--accent-cyan);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+        
+        .control-btn:hover {
+            background: rgba(0, 217, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 217, 255, 0.3);
+        }
+        
+        .control-btn:active {
+            transform: translateY(0);
+        }
+        
+        .control-btn.active {
+            background: var(--accent-cyan);
+            color: var(--bg-primary);
+        }
+        
+        .control-btn.zoom-btn {
+            min-width: 40px;
+            font-size: 1.25rem;
+            padding: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
         .loading-indicator {
             position: absolute;
             top: 50%;
@@ -259,6 +304,11 @@
             <div class="viewer-container">
                 <div class="viewer-header">
                     <div class="viewer-title">MODEL</div>
+                    <div class="viewer-controls">
+                        <button class="control-btn" id="autoRotateBtn" title="Toggle Auto-Rotate">Auto-Rotate</button>
+                        <button class="control-btn zoom-btn" id="zoomOutBtn" title="Zoom Out">−</button>
+                        <button class="control-btn zoom-btn" id="zoomInBtn" title="Zoom In">+</button>
+                    </div>
                 </div>
                 <div class="canvas-wrapper">
                     <canvas id="canvas1"></canvas>
@@ -292,7 +342,11 @@
         // ============================================
         // CONFIGURATION: Model file path
         // ============================================
-        // Note: This path works when using a local web server (http://localhost)
+        // For GitHub Pages: Use relative path if files are in same directory
+        // Examples:
+        //   - Same directory: 'Funky Wluff-Juttuli.glb'
+        //   - Subdirectory: './models/Funky Wluff-Juttuli.glb'
+        //   - Root level: '/Funky Wluff-Juttuli.glb'
         const MODEL_URL = 'Funky Wluff-Juttuli.glb';
         
         class ModelViewer {
@@ -468,6 +522,47 @@
                 this.camera.updateProjectionMatrix();
                 this.renderer.setSize(width, height);
             }
+            
+            // Toggle auto-rotation
+            toggleAutoRotate() {
+                if (this.controls) {
+                    this.controls.autoRotate = !this.controls.autoRotate;
+                    return this.controls.autoRotate;
+                }
+                return false;
+            }
+            
+            // Zoom in
+            zoomIn() {
+                if (this.controls && this.camera) {
+                    // Get current distance from target (usually origin)
+                    const target = this.controls.target || new THREE.Vector3(0, 0, 0);
+                    const direction = new THREE.Vector3()
+                        .subVectors(this.camera.position, target)
+                        .normalize();
+                    const currentDistance = this.camera.position.distanceTo(target);
+                    const newDistance = Math.max(this.controls.minDistance, currentDistance * 0.8);
+                    const delta = currentDistance - newDistance;
+                    this.camera.position.addScaledVector(direction, -delta);
+                    this.controls.update();
+                }
+            }
+            
+            // Zoom out
+            zoomOut() {
+                if (this.controls && this.camera) {
+                    // Get current distance from target (usually origin)
+                    const target = this.controls.target || new THREE.Vector3(0, 0, 0);
+                    const direction = new THREE.Vector3()
+                        .subVectors(this.camera.position, target)
+                        .normalize();
+                    const currentDistance = this.camera.position.distanceTo(target);
+                    const newDistance = Math.min(this.controls.maxDistance, currentDistance * 1.25);
+                    const delta = newDistance - currentDistance;
+                    this.camera.position.addScaledVector(direction, delta);
+                    this.controls.update();
+                }
+            }
         }
         
         // Initialize viewer after DOM is loaded
@@ -491,6 +586,42 @@
                     // Try to load the model
                     viewer.loadModelFromURL(MODEL_URL);
                 }
+            }
+            
+            // Setup control buttons
+            const autoRotateBtn = document.getElementById('autoRotateBtn');
+            const zoomInBtn = document.getElementById('zoomInBtn');
+            const zoomOutBtn = document.getElementById('zoomOutBtn');
+            
+            // Auto-rotate toggle button
+            if (autoRotateBtn) {
+                // Set initial state (auto-rotate is enabled by default)
+                autoRotateBtn.classList.add('active');
+                
+                autoRotateBtn.addEventListener('click', () => {
+                    const isActive = viewer.toggleAutoRotate();
+                    if (isActive) {
+                        autoRotateBtn.classList.add('active');
+                        autoRotateBtn.textContent = 'Auto-Rotate';
+                    } else {
+                        autoRotateBtn.classList.remove('active');
+                        autoRotateBtn.textContent = 'Paused';
+                    }
+                });
+            }
+            
+            // Zoom in button
+            if (zoomInBtn) {
+                zoomInBtn.addEventListener('click', () => {
+                    viewer.zoomIn();
+                });
+            }
+            
+            // Zoom out button
+            if (zoomOutBtn) {
+                zoomOutBtn.addEventListener('click', () => {
+                    viewer.zoomOut();
+                });
             }
         });
     </script>

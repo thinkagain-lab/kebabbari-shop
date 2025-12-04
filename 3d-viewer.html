@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dual 3D Viewer</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=IBM+Plex+Mono:wght@300;400&display=swap');
+        
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #151925;
+            --accent-cyan: #00d9ff;
+            --accent-magenta: #ff006e;
+            --text-primary: #e8eaed;
+            --text-secondary: #9ca3af;
+            --border: #1f2937;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'IBM Plex Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(0, 217, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(255, 0, 110, 0.05) 0%, transparent 50%);
+            animation: drift 20s ease-in-out infinite alternate;
+            z-index: 0;
+        }
+        
+        @keyframes drift {
+            from { transform: translate(0, 0) rotate(0deg); }
+            to { transform: translate(-5%, -5%) rotate(5deg); }
+        }
+        
+        header {
+            position: relative;
+            z-index: 10;
+            padding: 2rem 3rem;
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            background: rgba(10, 14, 23, 0.8);
+        }
+        
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 2px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+        
+        .subtitle {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .container {
+            position: relative;
+            z-index: 1;
+            padding: 2rem;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        .viewers-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            animation: fadeIn 1s ease-out 0.3s both;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        .viewer-container {
+            position: relative;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .viewer-container:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 25px 70px rgba(0, 217, 255, 0.2);
+        }
+        
+        .viewer-header {
+            padding: 1.5rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .viewer-title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: var(--accent-cyan);
+            letter-spacing: 1px;
+        }
+        
+        
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.3), rgba(21, 25, 37, 0.5));
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .model-info {
+            padding: 1.5rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-top: 1px solid var(--border);
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+        
+        .instructions {
+            margin-top: 2rem;
+            padding: 2rem;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            animation: fadeIn 1s ease-out 0.6s both;
+        }
+        
+        .instructions h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--accent-cyan);
+        }
+        
+        .instructions ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .instructions li {
+            padding: 0.75rem 0;
+            padding-left: 2rem;
+            position: relative;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        
+        .instructions li::before {
+            content: '▹';
+            position: absolute;
+            left: 0;
+            color: var(--accent-magenta);
+            font-size: 1.2rem;
+        }
+        
+        .loading-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .loading-indicator.active {
+            display: flex;
+        }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent-cyan);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 1024px) {
+            .viewers-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>3D VIEWER</h1>
+        <div class="subtitle">Interactive GLB Model Renderer</div>
+    </header>
+    
+    <div class="container">
+        <div class="viewers-grid">
+            <!-- Viewer -->
+            <div class="viewer-container">
+                <div class="viewer-header">
+                    <div class="viewer-title">MODEL</div>
+                </div>
+                <div class="canvas-wrapper">
+                    <canvas id="canvas1"></canvas>
+                    <div class="loading-indicator" id="loading1">
+                        <div class="spinner"></div>
+                        <span>Loading model...</span>
+                    </div>
+                </div>
+                <div class="model-info" id="modelInfo">
+                    Loading model...
+                </div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h2>Controls</h2>
+            <ul>
+                <li><strong>Rotate:</strong> Left-click and drag to rotate the model around</li>
+                <li><strong>Zoom:</strong> Scroll wheel or pinch gesture to zoom in/out</li>
+                <li><strong>Pan:</strong> Right-click and drag (or two-finger drag on trackpad) to move the model</li>
+                <li><strong>Auto-Rotate:</strong> Models automatically rotate when idle</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    
+    <script>
+        // ============================================
+        // CONFIGURATION: Model file path
+        // ============================================
+        // Note: This path works when using a local web server (http://localhost)
+        const MODEL_URL = 'Funky Wluff-Juttuli.glb';
+        
+        class ModelViewer {
+            constructor(canvasId, loadingId) {
+                this.canvas = document.getElementById(canvasId);
+                this.loadingIndicator = document.getElementById(loadingId);
+                
+                // Check if canvas element exists
+                if (!this.canvas) {
+                    console.error(`Canvas element with id "${canvasId}" not found`);
+                    return;
+                }
+                
+                if (!this.canvas.parentElement) {
+                    console.error(`Canvas parent element not found`);
+                    return;
+                }
+                
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(
+                    75,
+                    this.canvas.parentElement.offsetWidth / this.canvas.parentElement.offsetHeight,
+                    0.1,
+                    1000
+                );
+                
+                this.renderer = new THREE.WebGLRenderer({
+                    canvas: this.canvas,
+                    antialias: true,
+                    alpha: true
+                });
+                
+                this.renderer.setSize(
+                    this.canvas.parentElement.offsetWidth,
+                    this.canvas.parentElement.offsetHeight
+                );
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+                this.renderer.setClearColor(0x0a0e17, 0);
+                this.renderer.outputEncoding = THREE.sRGBEncoding;
+                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                this.renderer.toneMappingExposure = 1.2;
+                
+                // Camera position
+                this.camera.position.set(0, 2, 5);
+                
+                // Lights
+                this.setupLights();
+                
+                // Controls
+                this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+                this.controls.enableDamping = true;
+                this.controls.dampingFactor = 0.05;
+                this.controls.minDistance = 1;
+                this.controls.maxDistance = 50;
+                this.controls.autoRotate = true;
+                this.controls.autoRotateSpeed = 2.0;
+                
+                // Model
+                this.model = null;
+                this.loader = new THREE.GLTFLoader();
+                
+                // Animation
+                this.animate();
+                
+                // Handle resize
+                window.addEventListener('resize', () => this.onWindowResize());
+            }
+            
+            setupLights() {
+                // Ambient light
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                this.scene.add(ambientLight);
+                
+                // Key light
+                const keyLight = new THREE.DirectionalLight(0x00d9ff, 0.8);
+                keyLight.position.set(5, 5, 5);
+                this.scene.add(keyLight);
+                
+                // Fill light
+                const fillLight = new THREE.DirectionalLight(0xff006e, 0.4);
+                fillLight.position.set(-5, 3, -5);
+                this.scene.add(fillLight);
+                
+                // Rim light
+                const rimLight = new THREE.DirectionalLight(0xffffff, 0.3);
+                rimLight.position.set(0, -5, -5);
+                this.scene.add(rimLight);
+            }
+            
+            showLoading(show) {
+                if (show) {
+                    this.loadingIndicator.classList.add('active');
+                } else {
+                    this.loadingIndicator.classList.remove('active');
+                }
+            }
+            
+            // Load model from URL
+            loadModelFromURL(url) {
+                this.showLoading(true);
+                
+                const modelInfo = document.getElementById('modelInfo');
+                if (modelInfo) {
+                    modelInfo.textContent = 'Loading model...';
+                }
+                
+                this.loader.load(
+                    url,
+                    (gltf) => {
+                        // Remove old model
+                        if (this.model) {
+                            this.scene.remove(this.model);
+                        }
+                        
+                        this.model = gltf.scene;
+                        
+                        // Center and scale the model
+                        const box = new THREE.Box3().setFromObject(this.model);
+                        const center = box.getCenter(new THREE.Vector3());
+                        const size = box.getSize(new THREE.Vector3());
+                        
+                        const maxDim = Math.max(size.x, size.y, size.z);
+                        const scale = 3 / maxDim;
+                        
+                        this.model.scale.setScalar(scale);
+                        this.model.position.sub(center.multiplyScalar(scale));
+                        
+                        this.scene.add(this.model);
+                        this.showLoading(false);
+                        
+                        if (modelInfo) {
+                            modelInfo.textContent = 'Model loaded successfully';
+                        }
+                    },
+                    (progress) => {
+                        // Optional: Show loading progress
+                        if (progress.lengthComputable) {
+                            const percent = Math.round((progress.loaded / progress.total * 100));
+                            console.log(percent + '% loaded');
+                            if (modelInfo) {
+                                modelInfo.textContent = `Loading model... ${percent}%`;
+                            }
+                        }
+                    },
+                    (error) => {
+                        console.error('Error loading model:', error);
+                        this.showLoading(false);
+                        if (modelInfo) {
+                            modelInfo.textContent = 'Error loading model. Please check the console.';
+                        }
+                        // No fallback - just show error
+                    }
+                );
+            }
+            
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                
+                this.controls.update();
+                
+                this.renderer.render(this.scene, this.camera);
+            }
+            
+            onWindowResize() {
+                if (!this.canvas || !this.canvas.parentElement) {
+                    return;
+                }
+                
+                const width = this.canvas.parentElement.offsetWidth;
+                const height = this.canvas.parentElement.offsetHeight;
+                
+                this.camera.aspect = width / height;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(width, height);
+            }
+        }
+        
+        // Initialize viewer after DOM is loaded
+        let viewer;
+        
+        window.addEventListener('load', () => {
+            // Initialize viewer
+            viewer = new ModelViewer('canvas1', 'loading1');
+            
+            // Check if we're running from file:// protocol
+            const isFileProtocol = window.location.protocol === 'file:';
+            
+            // Load model if URL is set and not using file:// protocol
+            if (MODEL_URL) {
+                if (isFileProtocol) {
+                    const modelInfo = document.getElementById('modelInfo');
+                    if (modelInfo) {
+                        modelInfo.textContent = 'Please use a local web server to load the model (CORS restriction). Open http://localhost:8000/3d-viewer.html';
+                    }
+                } else {
+                    // Try to load the model
+                    viewer.loadModelFromURL(MODEL_URL);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
